@@ -1,0 +1,5 @@
+import {sqliteTable,text,integer} from 'drizzle-orm/sqlite-core';
+export const profiles=sqliteTable('profiles',{id:text('id').primaryKey(),name:text('name').notNull().default('Puzzler'),avatar:text('avatar').notNull().default('axo'),crown:integer('crown').notNull().default(0),rating:integer('rating').notNull().default(1000),wins:integer('wins').notNull().default(0),matches:integer('matches').notNull().default(0),sparks:integer('sparks').notNull().default(0),solved:integer('solved').notNull().default(0)});
+export const rooms=sqliteTable('rooms',{code:text('code').primaryKey(),state:text('state').notNull(),revision:integer('revision').notNull().default(0),updated:integer('updated').notNull()});
+export const claims=sqliteTable('claims',{id:text('id').primaryKey(),profile:text('profile').notNull(),points:integer('points').notNull(),ranked:integer('ranked').notNull().default(0),created:integer('created').notNull()});
+export const signals=sqliteTable('signals',{id:text('id').primaryKey(),room:text('room').notNull(),sender:text('sender').notNull(),recipient:text('recipient').notNull(),payload:text('payload').notNull(),created:integer('created').notNull()});

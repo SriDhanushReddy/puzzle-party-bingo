@@ -1,0 +1,17 @@
+'use client';
+export class VoiceRoom{
+ stream:MediaStream|null=null; peers=new Map<string,{pc:RTCPeerConnection;audio:HTMLAudioElement;candidates:RTCIceCandidateInit[]}>();seen=new Set<string>();acks:string[]=[];muted=new Set<string>();mode='ptt';talk=false;self='';error='';
+ constructor(public send:(body:any)=>Promise<any>,public changed:()=>void){}
+ async enable(){if(!navigator.mediaDevices?.getUserMedia||!window.RTCPeerConnection)throw Error('Voice is not supported in this browser. Text chat is available.');this.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});this.apply();}
+ apply(){this.stream?.getAudioTracks().forEach(t=>t.enabled=this.mode==='open'||this.talk);this.changed();}
+ setMode(mode:string){this.mode=mode;this.talk=false;this.apply();}
+ setTalk(v:boolean){this.talk=v;this.apply();}
+ mute(id:string,v:boolean){v?this.muted.add(id):this.muted.delete(id);const x=this.peers.get(id);if(x)x.audio.muted=v;this.changed();}
+ volume(id:string,v:number){const x=this.peers.get(id);if(x)x.audio.volume=v;}
+ peer(id:string){let x=this.peers.get(id);if(x)return x;const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]}),audio=document.createElement('audio');audio.autoplay=true;audio.setAttribute('playsinline','');audio.muted=this.muted.has(id);x={pc,audio,candidates:[]};this.peers.set(id,x);this.stream?.getTracks().forEach(t=>pc.addTrack(t,this.stream!));pc.onicecandidate=e=>{if(e.candidate)this.send({op:'signal',target:id,payload:{type:'candidate',candidate:e.candidate.toJSON()}}).catch(()=>{});};pc.ontrack=e=>{audio.srcObject=e.streams[0];audio.play().catch(()=>{this.error='Tap Enable voice again to allow audio playback.';this.changed();});};pc.onconnectionstatechange=()=>this.changed();return x;}
+ async sync(room:any,signals:any[]){if(!this.stream)return;this.self=room.me;const ids=room.players.filter((p:any)=>p.voice&&!p.left&&p.id!==room.me&&room.now-p.seen<45000).map((p:any)=>p.id);for(const [id,x]of this.peers)if(!ids.includes(id)){x.pc.close();x.audio.srcObject=null;this.peers.delete(id);}
+ for(const id of ids){if(this.peers.has(id)||this.self>id)continue;const x=this.peer(id);try{const offer=await x.pc.createOffer();await x.pc.setLocalDescription(offer);await this.send({op:'signal',target:id,payload:{type:'offer',sdp:offer.sdp}});}catch{this.error='Voice could not connect. Reconnect voice or use text chat.';}}
+ for(const s of signals||[]){this.acks.push(s.id);if(this.seen.has(s.id)||!ids.includes(s.sender))continue;this.seen.add(s.id);const x=this.peer(s.sender),p=s.payload;try{if(p.type==='candidate'){if(x.pc.remoteDescription)await x.pc.addIceCandidate(p.candidate);else x.candidates.push(p.candidate);}else{await x.pc.setRemoteDescription({type:p.type,sdp:p.sdp});for(const c of x.candidates)await x.pc.addIceCandidate(c);x.candidates=[];if(p.type==='offer'){const ans=await x.pc.createAnswer();await x.pc.setLocalDescription(ans);await this.send({op:'signal',target:s.sender,payload:{type:'answer',sdp:ans.sdp}});}}}catch{this.error='A voice connection failed. Toggle voice off and on to reconnect.';}}
+ this.changed();}
+ stop(){this.stream?.getTracks().forEach(t=>t.stop());this.stream=null;for(const x of this.peers.values()){x.pc.close();x.audio.srcObject=null;}this.peers.clear();this.seen.clear();this.talk=false;this.changed();}
+}
