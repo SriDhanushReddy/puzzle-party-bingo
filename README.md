@@ -46,7 +46,7 @@ Open the local URL Wrangler prints. The generated local D1 database persists in 
 ```sh
 export CLOUDFLARE_DATABASE_ID="YOUR_D1_DATABASE_ID"
 pnpm build
-pnpm deploy
+pnpm run deploy
 ```
 
 On PowerShell use `$env:CLOUDFLARE_DATABASE_ID="YOUR_D1_DATABASE_ID"` instead of `export`. The deployment script applies the versioned migrations before deploying the Worker and prints the public URL. It refuses to deploy the local placeholder database ID. Check current Cloudflare quotas and pricing before deploying. No ChatGPT runtime, account or secret is required by this standalone version.
